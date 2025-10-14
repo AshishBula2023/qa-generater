@@ -1,5 +1,6 @@
-fastapi
-uvicorn
-youtube-transcript-api
-pydantic
-gunicorn
+fastapi==0.115.2
+uvicorn==0.32.0
+pytube==15.0.0
+SpeechRecognition==3.10.4
+pydub==0.25.1
+ffmpeg-python==0.2.0
