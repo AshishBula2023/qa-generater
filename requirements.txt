@@ -3,4 +3,4 @@ uvicorn==0.32.0
 pytube==15.0.0
 SpeechRecognition==3.10.4
 pydub==0.25.1
-ffmpeg-python==0.2.0
+imageio[ffmpeg]==2.34.1
