@@ -1,4 +1,6 @@
-flask
-youtube-dl
-pydub
-SpeechRecognition
+flask==2.3.2
+pytube==15.0.0
+openai-whisper==20250625
+torch==2.2.1+cpu
+torchaudio==2.2.1+cpu
+pydub==0.25.1
