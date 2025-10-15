@@ -1,7 +1,5 @@
 fastapi==0.115.2
 uvicorn==0.32.0
 pytube==15.0.0
-whisper==20231117
+openai-whisper==20231117
 torch==2.1.0
-pydub==0.25.1
-numpy==1.26.4
