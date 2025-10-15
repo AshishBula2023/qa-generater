@@ -4,7 +4,9 @@ import whisper
 import os
 
 app = FastAPI()
-model = whisper.load_model("base")
+
+# Load lightweight model for low memory usage
+model = whisper.load_model("tiny")  # tiny, base, small, medium, large
 
 @app.get("/transcript")
 def generate_transcript(video_url: str):
@@ -13,8 +15,8 @@ def generate_transcript(video_url: str):
         stream = yt.streams.filter(only_audio=True).first()
         output_file = stream.download(filename="temp.mp4")
 
-        # Transcribe using Whisper
-        result = model.transcribe(output_file)
+        # Transcribe using Whisper (low memory mode)
+        result = model.transcribe(output_file, fp16=False)
         text = result["text"]
 
         os.remove(output_file)
