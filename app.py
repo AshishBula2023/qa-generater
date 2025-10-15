@@ -1,35 +1,53 @@
-from fastapi import FastAPI, HTTPException
-from pytube import YouTube
-import whisper
+from flask import Flask, request, jsonify
+import youtube_dl
+from pydub import AudioSegment
+import speech_recognition as sr
 import os
 
-app = FastAPI()
+app = Flask(__name__)
 
-# Tiny model for low memory usage
-model = whisper.load_model("tiny")
+def extract_audio(video_url):
+    ydl_opts = {
+        'outtmpl': 'video.%(ext)s',
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+    }
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([video_url])
+    return 'video.mp3'
 
-@app.get("/transcript")
-def generate_transcript(video_url: str):
-    try:
-        # Download audio only
-        yt = YouTube(video_url)
-        stream = yt.streams.filter(only_audio=True).first()
-        if not stream:
-            raise HTTPException(status_code=400, detail="No audio stream found")
-        
-        output_file = stream.download(filename="temp_audio.mp4")
+def speech_to_text(audio_file):
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(audio_file) as source:
+        audio = recognizer.record(source)
+        try:
+            text = recognizer.recognize_google(audio)
+            return text
+        except sr.UnknownValueError:
+            return "Could not understand audio."
+        except sr.RequestError:
+            return "API unavailable."
 
-        # Transcribe audio using Tiny model
-        result = model.transcribe(output_file)
-        transcript_text = result["text"]
+@app.route('/extract_text', methods=['POST'])
+def extract_text():
+    data = request.get_json()
+    url = data.get('url', '')
+    if not url:
+        return jsonify({'error': 'No URL provided'}), 400
 
-        # Remove temp file
-        os.remove(output_file)
+    # ऑडियो एक्सट्रैक्ट
+    audio_file = extract_audio(url)
+    text = speech_to_text(audio_file)
 
-        return {
-            "video_title": yt.title,
-            "transcript": transcript_text
-        }
+    # फाइल हटाएं
+    if os.path.exists(audio_file):
+        os.remove(audio_file)
 
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return jsonify({'text': text})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
