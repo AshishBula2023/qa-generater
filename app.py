@@ -3,12 +3,16 @@ import youtube_dl
 from pydub import AudioSegment
 import speech_recognition as sr
 import os
+import logging
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 def extract_audio(video_url):
+    video_id = video_url.split("v=")[1].split("&")[0][:10]  # यूनिक ID
     ydl_opts = {
-        'outtmpl': 'video.%(ext)s',
+        'outtmpl': f'video_{video_id}.%(ext)s',
         'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -18,12 +22,12 @@ def extract_audio(video_url):
     }
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         ydl.download([video_url])
-    return 'video.mp3'
+    return f'video_{video_id}.mp3'
 
 def speech_to_text(audio_file):
     recognizer = sr.Recognizer()
     with sr.AudioFile(audio_file) as source:
-        audio = recognizer.record(source)
+        audio = recognizer.record(source, duration=10)  # 10 सेकंड लिमिट
         try:
             text = recognizer.recognize_google(audio)
             return text
@@ -39,15 +43,20 @@ def extract_text():
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
 
-    # ऑडियो एक्सट्रैक्ट
-    audio_file = extract_audio(url)
-    text = speech_to_text(audio_file)
+    logger.debug(f"Processing URL: {url}")
+    try:
+        audio_file = extract_audio(url)
+        logger.debug(f"Audio file extracted: {audio_file}")
+        text = speech_to_text(audio_file)
+        logger.debug(f"Text extracted: {text}")
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
-    # फाइल हटाएं
     if os.path.exists(audio_file):
         os.remove(audio_file)
-
     return jsonify({'text': text})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
