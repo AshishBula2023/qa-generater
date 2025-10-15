@@ -1,58 +1,24 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
 from pytube import YouTube
-import speech_recognition as sr
-from pydub import AudioSegment
+import whisper
 import os
-import math
 
 app = FastAPI()
+model = whisper.load_model("base")
 
-class VideoURL(BaseModel):
-    url: str
-
-@app.post("/speech_to_text")
-def speech_to_text(video: VideoURL):
+@app.get("/transcript")
+def generate_transcript(video_url: str):
     try:
-        # STEP 1: Download audio only
-        yt = YouTube(video.url)
+        yt = YouTube(video_url)
         stream = yt.streams.filter(only_audio=True).first()
-        output_file = stream.download(filename="temp_audio.mp4")
+        output_file = stream.download(filename="temp.mp4")
 
-        # STEP 2: Convert audio to wav
-        audio = AudioSegment.from_file(output_file, format="mp4")
-        wav_file = "temp_audio.wav"
-        audio.export(wav_file, format="wav")
+        # Transcribe using Whisper
+        result = model.transcribe(output_file)
+        text = result["text"]
 
-        # STEP 3: Split audio into chunks (30 sec)
-        recognizer = sr.Recognizer()
-        duration_ms = len(audio)
-        chunk_length_ms = 30 * 1000
-        chunks = math.ceil(duration_ms / chunk_length_ms)
-
-        transcript = ""
-        for i in range(chunks):
-            start = i * chunk_length_ms
-            end = min((i + 1) * chunk_length_ms, duration_ms)
-            chunk_audio = audio[start:end]
-            chunk_file = f"chunk_{i}.wav"
-            chunk_audio.export(chunk_file, format="wav")
-
-            with sr.AudioFile(chunk_file) as source:
-                audio_data = recognizer.record(source)
-                try:
-                    text = recognizer.recognize_google(audio_data, language="en-IN")
-                    transcript += " " + text
-                except:
-                    transcript += " [Unclear audio]"
-
-            os.remove(chunk_file)
-
-        # Cleanup
         os.remove(output_file)
-        os.remove(wav_file)
-
-        return {"transcript": transcript.strip()}
+        return {"video_title": yt.title, "transcript": text}
 
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=400, detail=str(e))
